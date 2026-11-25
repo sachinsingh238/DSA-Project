@@ -1,0 +1,232 @@
+import java.io.*;
+import java.util.*;
+
+// Room object stored in the ArrayList
+class Room {
+    int number;
+    String type;
+    int price;          // price per night
+    boolean booked;
+    String guest;
+    int nights;
+
+    Room(int number, String type, int price) {
+        this.number = number;
+        this.type = type;
+        this.price = price;
+        this.booked = false;
+        this.guest = "";
+        this.nights = 0;
+    }
+
+    String status() {
+        return booked ? "Booked" : "Available";
+    }
+
+    // Line format used in rooms.txt
+    String toFileLine() {
+        if (booked) {
+            return number + "," + type + "," + price + ",Booked," + guest + "," + nights;
+        }
+        return number + "," + type + "," + price + ",Available";
+    }
+
+    @Override
+    public String toString() {
+        return number + " | " + type + " | " + price + " | " + status();
+    }
+}
+
+public class Main {
+    static final String FILE_NAME = "rooms.txt";
+    static ArrayList<Room> rooms = new ArrayList<>();
+    static HashMap<Integer, Room> roomMap = new HashMap<>();
+    static Scanner sc = new Scanner(System.in);
+
+    // ---------- File handling ----------
+    static void loadRooms() {
+        File f = new File(FILE_NAME);
+        if (!f.exists()) {
+            System.out.println("rooms.txt not found. Loading default rooms.");
+            addRoom(new Room(101, "Single", 1500));
+            addRoom(new Room(102, "Double", 2500));
+            addRoom(new Room(103, "Suite", 5000));
+            return;
+        }
+        try (BufferedReader br = new BufferedReader(new FileReader(f))) {
+            String line;
+            while ((line = br.readLine()) != null) {
+                line = line.trim();
+                if (line.isEmpty()) continue;
+                String[] p = line.split(",");
+                if (p.length < 3) continue;
+                Room r = new Room(Integer.parseInt(p[0].trim()),
+                                  p[1].trim(),
+                                  Integer.parseInt(p[2].trim()));
+                if (p.length >= 6 && p[3].trim().equalsIgnoreCase("Booked")) {
+                    r.booked = true;
+                    r.guest = p[4].trim();
+                    r.nights = Integer.parseInt(p[5].trim());
+                }
+                addRoom(r);
+            }
+        } catch (IOException | NumberFormatException e) {
+            System.out.println("Error reading file: " + e.getMessage());
+        }
+    }
+
+    static void saveRooms() {
+        try (PrintWriter pw = new PrintWriter(new FileWriter(FILE_NAME))) {
+            for (Room r : rooms) {
+                pw.println(r.toFileLine());
+            }
+            System.out.println("Data saved to " + FILE_NAME);
+        } catch (IOException e) {
+            System.out.println("Error saving file: " + e.getMessage());
+        }
+    }
+
+    static void addRoom(Room r) {
+        rooms.add(r);
+        roomMap.put(r.number, r);
+    }
+
+    // ---------- Helpers ----------
+    static int readInt(String prompt) {
+        while (true) {
+            System.out.print(prompt);
+            String s = sc.nextLine().trim();
+            try {
+                return Integer.parseInt(s);
+            } catch (NumberFormatException e) {
+                System.out.println("Please enter a valid number.");
+            }
+        }
+    }
+
+    static int countAvailable() {
+        int c = 0;
+        for (Room r : rooms) {
+            if (!r.booked) c++;
+        }
+        return c;
+    }
+
+    // ---------- Features ----------
+    static void viewRooms() {
+        System.out.println("Room | Type | Price | Status");
+        for (Room r : rooms) {
+            System.out.print(r);
+            if (r.booked) {
+                System.out.print(" (Guest: " + r.guest + ", Nights: " + r.nights + ")");
+            }
+            System.out.println();
+        }
+    }
+
+    static void bookRoom() {
+        int num = readInt("Room: ");
+        Room r = roomMap.get(num);
+        if (r == null) {
+            System.out.println("Room " + num + " not found.");
+            return;
+        }
+        if (r.booked) {
+            System.out.println("Room " + num + " is already booked.");
+            return;
+        }
+        System.out.print("Guest: ");
+        String guest = sc.nextLine().trim();
+        if (guest.isEmpty()) {
+            System.out.println("Guest name cannot be empty.");
+            return;
+        }
+        int nights = readInt("Nights: ");
+        if (nights <= 0) {
+            System.out.println("Nights must be at least 1.");
+            return;
+        }
+        r.booked = true;
+        r.guest = guest;
+        r.nights = nights;
+        System.out.println("Room " + num + " booked for " + guest + ". Total: " + (r.price * nights));
+        System.out.println("Available rooms: " + countAvailable());
+    }
+
+    static void searchByType() {
+        System.out.print("Type (Single/Double/Suite): ");
+        String type = sc.nextLine().trim();
+        boolean found = false;
+        for (Room r : rooms) {
+            if (r.type.equalsIgnoreCase(type) && !r.booked) {
+                System.out.println(r);
+                found = true;
+            }
+        }
+        if (!found) {
+            System.out.println("No available rooms of type " + type + ".");
+        }
+    }
+
+    static void checkOut() {
+        int num = readInt("Room: ");
+        Room r = roomMap.get(num);
+        if (r == null) {
+            System.out.println("Room " + num + " not found.");
+            return;
+        }
+        if (!r.booked) {
+            System.out.println("Room " + num + " is not booked.");
+            return;
+        }
+        int bill = r.price * r.nights;
+        r.booked = false;
+        r.guest = "";
+        r.nights = 0;
+        System.out.println("Room " + num + " checked out. Bill: " + bill + ". Status: " + r.status());
+    }
+
+    static void sortByPriceHighToLow() {
+        ArrayList<Room> sorted = new ArrayList<>(rooms);
+        sorted.sort((a, b) -> b.price - a.price);
+        StringBuilder sb = new StringBuilder();
+        for (Room r : sorted) {
+            sb.append(r.number).append(" | ").append(r.price).append("   ");
+        }
+        System.out.println(sb.toString().trim());
+    }
+
+    static void showMenu() {
+        System.out.println("\n===== HOTEL ROOM BOOKING SYSTEM =====");
+        System.out.println("1. View rooms");
+        System.out.println("2. Book room");
+        System.out.println("3. Search available rooms by type");
+        System.out.println("4. Check out");
+        System.out.println("5. Sort rooms by price (high to low)");
+        System.out.println("6. Save and exit");
+    }
+
+    // ---------- Main ----------
+    public static void main(String[] args) {
+        loadRooms();
+        boolean running = true;
+        while (running) {
+            showMenu();
+            int choice = readInt("Choose option: ");
+            switch (choice) {
+                case 1: viewRooms(); break;
+                case 2: bookRoom(); break;
+                case 3: searchByType(); break;
+                case 4: checkOut(); break;
+                case 5: sortByPriceHighToLow(); break;
+                case 6:
+                    saveRooms();
+                    running = false;
+                    break;
+                default:
+                    System.out.println("Invalid option. Choose 1-6.");
+            }
+        }
+        System.out.println("Thank you!");
+    }
+}
